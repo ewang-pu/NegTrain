@@ -190,7 +190,7 @@ def evaluate(model, data, epoch, args, tb_writer=None):
                     labels = torch.arange(batch_size, device=device).long()
                     total_loss = (
                         F.cross_entropy(logits_per_image, labels) +
-                        F.cross_entropy(logits_per_text, labels)
+                        F.cross_entropy(logits_per_text[:len(logits_per_image)], labels)
                     ) / 2
 
                 cumulative_loss += total_loss * batch_size
