@@ -46,7 +46,7 @@ def unwrap_model(model):
 
 def train_one_epoch(model, data, epoch, optimizer, scaler, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
-    print("wewewe")
+    logging.info("wewewe")
     autocast = torch.cuda.amp.autocast if args.precision == 'amp' else suppress
 
     model.train()
