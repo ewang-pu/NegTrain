@@ -46,6 +46,7 @@ def unwrap_model(model):
 
 def train_one_epoch(model, data, epoch, optimizer, scaler, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
+    print("wewewe")
     autocast = torch.cuda.amp.autocast if args.precision == 'amp' else suppress
 
     model.train()
@@ -222,7 +223,7 @@ def evaluate(model, data, epoch, args, tb_writer=None):
             )
             loss = cumulative_loss / num_samples
             reg_loss = cumulative_regularization_loss / num_samples
-            
+
             metrics.update(
                 {**val_metrics, "val_loss": loss.item(), "reg_loss": reg_loss, "epoch": epoch, "num_samples": num_samples}
             )
