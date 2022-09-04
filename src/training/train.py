@@ -221,8 +221,10 @@ def evaluate(model, data, epoch, args, tb_writer=None):
                 logit_scale=logit_scale.cpu(),
             )
             loss = cumulative_loss / num_samples
+            reg_loss = cumulative_regularization_loss / num_samples
+            
             metrics.update(
-                {**val_metrics, "val_loss": loss.item(), "epoch": epoch, "num_samples": num_samples}
+                {**val_metrics, "val_loss": loss.item(), "reg_loss": reg_loss, "epoch": epoch, "num_samples": num_samples}
             )
 
     if not metrics:
