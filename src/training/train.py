@@ -81,8 +81,8 @@ def train_one_epoch(model, data, epoch, optimizer, scaler, scheduler, args, tb_w
         optimizer.zero_grad()
 
         with autocast():
-            image_features, text_features, logit_scale = model(images, texts)
-            total_loss = loss(image_features, text_features, hard_captions, logit_scale)
+            image_features, text_features, hard_features, logit_scale = model(images, texts, hard_captions)
+            total_loss = loss(image_features, text_features, hard_features, logit_scale)
 
         if scaler is not None:
             scaler.scale(total_loss).backward()
@@ -182,7 +182,7 @@ def evaluate(model, data, epoch, args, tb_writer=None):
                 hard_captions = hard_captions.to(device=device, non_blocking=True)
 
                 with autocast():
-                    image_features, text_features, logit_scale = model(images, texts)
+                    image_features, text_features, hard_features, logit_scale = model(images, texts, hard_captions)
                     # features are accumulated in CPU tensors, otherwise GPU memory exhausted quickly
                     # however, system RAM is easily exceeded and compute time becomes problematic
 

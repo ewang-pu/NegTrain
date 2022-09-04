@@ -452,7 +452,7 @@ class CLIP(nn.Module):
 
         return x
 
-    def forward(self, image, text):
+    def forward(self, image, text, hard_captions=None):
         if image is None:
             return self.encode_text(text)
         elif text is None:
@@ -463,7 +463,10 @@ class CLIP(nn.Module):
         text_features = self.encode_text(text)
         text_features = F.normalize(text_features, dim=-1)
 
-        return image_features, text_features, self.logit_scale.exp()
+        hard_text_features = self.encode_text(hard_captions)
+        hard_text_features = F.normalize(hard_text_features, dim=-1)
+
+        return image_features, text_features, hard_text_features, self.logit_scale.exp()
 
 
 def convert_weights_to_fp16(model: nn.Module):
