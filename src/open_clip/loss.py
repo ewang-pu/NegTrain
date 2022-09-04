@@ -85,7 +85,7 @@ class ClipLoss(nn.Module):
         self.prev_num_logits = 0
         self.labels = {}
 
-    def forward(self, image_features, text_features, logit_scale):
+    def forward(self, image_features, text_features, hard_negatives, logit_scale):
         device = image_features.device
         if self.world_size > 1:
             all_image_features, all_text_features = gather_features(
@@ -116,6 +116,12 @@ class ClipLoss(nn.Module):
 
         total_loss = (
             F.cross_entropy(logits_per_image, labels) +
-            F.cross_entropy(logits_per_text[:len(logits_per_image)], labels)
+            F.cross_entropy(logits_per_text, labels)
             ) / 2
-        return total_loss
+
+        caption_sims_for_regularization = 1 - image_features @ text_features.T
+        hard_caption_sims_for_regularization = 1 - hard_negatives @ text_features.T
+
+        regularization = torch.sum(0.2 + caption_sims_for_regularization - hard_caption_sims_for_regularization)
+
+        return total_loss + 0.2*regularization

@@ -75,14 +75,14 @@ def train_one_epoch(model, data, epoch, optimizer, scaler, scheduler, args, tb_w
         texts = texts.to(device=device, non_blocking=True)
         hard_captions = hard_captions.to(device=device, non_blocking=True)
 
-        texts = torch.cat([texts, hard_captions])
+        #texts = torch.cat([texts, hard_captions])
 
         data_time_m.update(time.time() - end)
         optimizer.zero_grad()
 
         with autocast():
             image_features, text_features, logit_scale = model(images, texts)
-            total_loss = loss(image_features, text_features, logit_scale)
+            total_loss = loss(image_features, text_features, hard_captions, logit_scale)
 
         if scaler is not None:
             scaler.scale(total_loss).backward()
@@ -172,6 +172,7 @@ def evaluate(model, data, epoch, args, tb_writer=None):
         # FIXME this does not scale past small eval datasets
         # all_image_features @ all_text_features will blow up memory and compute very quickly
         cumulative_loss = 0.0
+        cumulative_regularization_loss = 0.0
         all_image_features, all_text_features = [], []
         with torch.no_grad():
             for i, batch in enumerate(dataloader):
@@ -179,8 +180,6 @@ def evaluate(model, data, epoch, args, tb_writer=None):
                 images = images.to(device=device, non_blocking=True)
                 texts = texts.to(device=device, non_blocking=True)
                 hard_captions = hard_captions.to(device=device, non_blocking=True)
-
-                texts = torch.cat([texts, hard_captions])
 
                 with autocast():
                     image_features, text_features, logit_scale = model(images, texts)
@@ -192,21 +191,29 @@ def evaluate(model, data, epoch, args, tb_writer=None):
                     logits_per_text = logits_per_image.t()
                     
                     all_image_features.append(image_features.cpu())
-                    all_text_features.append(text_features[:len(logits_per_image)].cpu())
+                    all_text_features.append(text_features.cpu())
 
                     batch_size = images.shape[0]
                     labels = torch.arange(batch_size, device=device).long()
                     total_loss = (
                         F.cross_entropy(logits_per_image, labels) +
-                        F.cross_entropy(logits_per_text[:len(logits_per_image)], labels)
+                        F.cross_entropy(logits_per_text, labels)
                     ) / 2
 
+                    caption_sims_for_regularization = 1 - image_features @ text_features.T
+                    hard_caption_sims_for_regularization = 1 - hard_negatives @ text_features.T
+
+                    regularization = torch.sum(
+                        0.2 + caption_sims_for_regularization - hard_caption_sims_for_regularization)
+
+                cumulative_regularization_loss += regularization*batch_size
                 cumulative_loss += total_loss * batch_size
                 num_samples += batch_size
                 if is_master(args) and (i % 100) == 0:
                     logging.info(
                         f"Eval Epoch: {epoch} [{num_samples} / {samples_per_val}]\t"
-                        f"Loss: {cumulative_loss / num_samples:.6f}\t")
+                        f"Loss: {cumulative_loss / num_samples:.6f}\t"
+                        f"Cumulative Regularization: {cumulative_regularization_loss / num_samples:.6f}\t")
 
             val_metrics = get_metrics(
                 image_features=torch.cat(all_image_features),
@@ -248,7 +255,7 @@ def get_metrics(image_features, text_features, logit_scale):
     logits_per_image = (logit_scale * image_features @ text_features.t()).detach().cpu()
     logits_per_text = logits_per_image.t().detach().cpu()
 
-    logits = {"image_to_text": logits_per_image, "text_to_image": logits_per_text[:len(logits_per_image)]}
+    logits = {"image_to_text": logits_per_image, "text_to_image": logits_per_text}
     ground_truth = torch.arange(len(text_features)).view(-1, 1)
 
     for name, logit in logits.items():
