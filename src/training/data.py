@@ -30,13 +30,13 @@ from open_clip import tokenize
 
 
 class CsvDataset(Dataset):
-    def __init__(self, input_filename, transforms, img_key, caption_key, hard_caption_key, sep="\t"):
+    def __init__(self, input_filename, transforms, img_key, caption_key, hard_captions_key, sep="\t"):
         logging.debug(f'Loading csv data from {input_filename}.')
         df = pd.read_csv(input_filename, sep=sep)
 
         self.images = df[img_key].tolist()
         self.captions = df[caption_key].tolist()
-        self.hard_captions = df[hard_caption_key].tolist()
+        self.hard_captions = df[hard_captions_key].tolist()
         self.transforms = transforms
         logging.debug('Done loading data.')
 
@@ -401,6 +401,7 @@ def get_csv_dataset(args, preprocess_fn, is_train, epoch=0):
         preprocess_fn,
         img_key=args.csv_img_key,
         caption_key=args.csv_caption_key,
+        hard_captions_key=args.csv_hard_captions_key,
         sep=args.csv_separator)
     num_samples = len(dataset)
     sampler = DistributedSampler(dataset) if args.distributed and is_train else None
