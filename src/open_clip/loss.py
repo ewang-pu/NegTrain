@@ -89,7 +89,7 @@ class ClipLoss(nn.Module):
         device = image_features.device
         size_of_bs = len(image_features)
 
-        image_features = torch.cat([image_features, text_features[:len(image_features)]])
+        image_features = torch.cat([image_features, text_features[len(image_features):]])
 
         if self.world_size > 1:
             all_image_features, all_text_features = gather_features(
@@ -110,7 +110,7 @@ class ClipLoss(nn.Module):
         num_logits = logits_per_image.shape[0]
         if self.prev_num_logits != num_logits or device not in self.labels:
             labels = torch.arange(size_of_bs, device=device, dtype=torch.long)
-            labels = torch.cat([labels, torch.full((size_of_bs), -100)])
+            labels = torch.cat([labels, torch.full((size_of_bs, ), -100, dtype=torch.long, device=device)])
 
             if self.world_size > 1 and self.local_loss:
                 labels = labels + num_logits * self.rank
