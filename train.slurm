@@ -13,9 +13,13 @@
 
 module purge
 module load anaconda3/2023.9
+module load cudatoolkit/12.2
 conda activate NegTrain # TODO your conda environment 
 
-CUDA_VISIBLE_DEVICES=0 python -m training.main \
+
+
+CUDA_VISIBLE_DEVICES=0 
+python -u src/training/main.py \
     --train-data="./temp_data/train_neg_clip.tsv" \
     --report-to tensorboard \
     --batch-size=256 \
