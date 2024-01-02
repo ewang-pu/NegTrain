@@ -12,6 +12,7 @@ import sys
 import os
 
 sys.path.append("..")
+sys.path.append("src")
 
 try:
     import wandb
