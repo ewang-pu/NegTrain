@@ -21,7 +21,6 @@ conda activate NegTrain # TODO your conda environment
 CUDA_VISIBLE_DEVICES=0 
 python -u src/training/main.py \
     --train-data="./temp_data/train_neg_clip.tsv" \
-    --report-to tensorboard \
     --batch-size=256 \
     --epochs=5 \
     --name="negclip_256_1e-6" \
