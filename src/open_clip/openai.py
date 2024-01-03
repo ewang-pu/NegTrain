@@ -10,20 +10,24 @@ from typing import Union, List
 import torch
 
 from .model import build_model_from_openai_state_dict
-from .pretrained import get_pretrained_url, list_pretrained_tag_models, download_pretrained
+from .pretrained import (
+    get_pretrained_url,
+    list_pretrained_tag_models,
+    download_pretrained,
+)
 
 __all__ = ["list_openai_models", "load_openai_model"]
 
 
 def list_openai_models() -> List[str]:
     """Returns the names of available CLIP models"""
-    return list_pretrained_tag_models('openai')
+    return list_pretrained_tag_models("openai")
 
 
 def load_openai_model(
-        name: str,
-        device: Union[str, torch.device] = "cuda" if torch.cuda.is_available() else "cpu",
-        jit=True,
+    name: str,
+    device: Union[str, torch.device] = "cuda" if torch.cuda.is_available() else "cpu",
+    jit=True,
 ):
     """Load a CLIP model
 
@@ -43,12 +47,16 @@ def load_openai_model(
     preprocess : Callable[[PIL.Image], torch.Tensor]
         A torchvision transform that converts a PIL image into a tensor that the returned model can take as its input
     """
-    if get_pretrained_url(name, 'openai'):
-        model_path = download_pretrained(get_pretrained_url(name, 'openai'))
+    if get_pretrained_url(name, "openai"):
+        # local model
+        model_path = "/scratch/gpfs/evanwang/NegTrain/local_models/ViT-B-32.pt"
+        # model_path = download_pretrained(get_pretrained_url(name, "openai"))
     elif os.path.isfile(name):
         model_path = name
     else:
-        raise RuntimeError(f"Model {name} not found; available models = {list_openai_models()}")
+        raise RuntimeError(
+            f"Model {name} not found; available models = {list_openai_models()}"
+        )
 
     try:
         # loading JIT archive
@@ -57,13 +65,17 @@ def load_openai_model(
     except RuntimeError:
         # loading saved state dict
         if jit:
-            warnings.warn(f"File {model_path} is not a JIT archive. Loading as a state dict instead")
+            warnings.warn(
+                f"File {model_path} is not a JIT archive. Loading as a state dict instead"
+            )
             jit = False
         state_dict = torch.load(model_path, map_location="cpu")
 
     if not jit:
         try:
-            model = build_model_from_openai_state_dict(state_dict or model.state_dict()).to(device)
+            model = build_model_from_openai_state_dict(
+                state_dict or model.state_dict()
+            ).to(device)
         except KeyError:
             sd = {k[7:]: v for k, v in state_dict["state_dict"].items()}
             model = build_model_from_openai_state_dict(sd).to(device)
@@ -73,8 +85,14 @@ def load_openai_model(
         return model
 
     # patch the device names
-    device_holder = torch.jit.trace(lambda: torch.ones([]).to(torch.device(device)), example_inputs=[])
-    device_node = [n for n in device_holder.graph.findAllNodes("prim::Constant") if "Device" in repr(n)][-1]
+    device_holder = torch.jit.trace(
+        lambda: torch.ones([]).to(torch.device(device)), example_inputs=[]
+    )
+    device_node = [
+        n
+        for n in device_holder.graph.findAllNodes("prim::Constant")
+        if "Device" in repr(n)
+    ][-1]
 
     def patch_device(module):
         try:
@@ -87,7 +105,9 @@ def load_openai_model(
 
         for graph in graphs:
             for node in graph.findAllNodes("prim::Constant"):
-                if "value" in node.attributeNames() and str(node["value"]).startswith("cuda"):
+                if "value" in node.attributeNames() and str(node["value"]).startswith(
+                    "cuda"
+                ):
                     node.copyAttributes(device_node)
 
     model.apply(patch_device)
@@ -96,7 +116,9 @@ def load_openai_model(
 
     # patch dtype to float32 on CPU
     if str(device) == "cpu":
-        float_holder = torch.jit.trace(lambda: torch.ones([]).float(), example_inputs=[])
+        float_holder = torch.jit.trace(
+            lambda: torch.ones([]).float(), example_inputs=[]
+        )
         float_input = list(float_holder.graph.findNode("aten::to").inputs())[1]
         float_node = float_input.node()
 
@@ -112,7 +134,10 @@ def load_openai_model(
             for graph in graphs:
                 for node in graph.findAllNodes("aten::to"):
                     inputs = list(node.inputs())
-                    for i in [1, 2]:  # dtype can be the second or third argument to aten::to()
+                    for i in [
+                        1,
+                        2,
+                    ]:  # dtype can be the second or third argument to aten::to()
                         if inputs[i].node()["value"] == 5:
                             inputs[i].node().copyAttributes(float_node)
 
