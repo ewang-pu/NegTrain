@@ -21,8 +21,8 @@ python -u src/training/main.py \
     --train-data="./temp_data/train_neg_clip.tsv" \
     --batch-size=256 \
     --epochs=5 \
-    --name="negclip_256_1e-6" \
-    --lr=1e-6 \
+    --name="negclip_256_1e-8" \
+    --lr=1e-8 \
     --val-data="./temp_data/valid_neg_clip.tsv"  \
     --logs="./logs/negCLIP/" \
     --pretrained="openai" \
